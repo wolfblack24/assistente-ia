@@ -219,15 +219,15 @@ async def processar_pergunta(request: Request):
         categoria = "OUTROS"; tema = ""
 
         try:
-            # ✅ MODELO CORRIGIDO E 100% FUNCIONAL NA GROQ
             chat_completion = client_groq.chat.completions.create(
                 messages=chat, 
-                model="qwen/qwen3.8-27b",  # <-- ESTE É O MODELO CORRETO E ESTÁVEL
+                model="llama-3.1-8b-instant",  # <-- MODELO CORRETO E ESTÁVEL
                 response_format={"type": "json_object"}, 
                 temperature=0.5, 
-                max_tokens=1024, 
+                max_tokens=300,                # <-- REDUZIDO PARA 300 (CABE NO LIMITE GRATUITO E SOBE PARA 3 FRASES)
                 timeout=30
             )
+            
             raw_text = chat_completion.choices[0].message.content.strip()
             if raw_text.startswith("```json"): raw_text = raw_text[7:]
             if raw_text.endswith("```"): raw_text = raw_text[:-3]
