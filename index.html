@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>Assistente Educacional IA</title>
+    <style>
+        :root { --bg: #0f1115; --card: #1b1e24; --input: #2d313a; --primary: #00d2ff; --success: #00ff66; --danger: #ff4444; --text: #e2e8f0; --text-muted: #888; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+        #videoElement, #canvasElement { display: none !important; }
+        #welcomeScreen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; animation: fadeIn 0.5s ease; }
+        .welcome-card { background: var(--card); border-radius: 20px; padding: 30px 25px; width: 100%; max-width: 420px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+        .welcome-logo { font-size: 60px; text-align: center; margin-bottom: 10px; }
+        .welcome-title { text-align: center; color: var(--primary); font-size: 22px; font-weight: bold; margin-bottom: 5px; }
+        .welcome-subtitle { text-align: center; color: var(--text-muted); font-size: 14px; margin-bottom: 25px; }
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: var(--text); }
+        .form-group input, .form-group select { width: 100%; padding: 14px; background: var(--input); border: 1px solid #333; border-radius: 10px; color: white; font-size: 15px; outline: none; }
+        .form-group input:focus, .form-group select:focus { border-color: var(--primary); }
+        .form-group select option { background: var(--card); color: white; }
+        .btn-enter { width: 100%; padding: 16px; background: var(--primary); color: #000; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: transform 0.1s; }
+        .btn-enter:active { transform: scale(0.97); }
+        .btn-enter:disabled { background: #555; color: #999; cursor: not-allowed; }
+        .btn-camera { width: 100%; padding: 16px; background: var(--input); color: white; border: 1px solid var(--primary); border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 8px; transition: all 0.2s; }
+        .btn-camera:active { transform: scale(0.97); }
+        .btn-camera:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-cadastro { background: #23272e; border-color: var(--success); }
+        .privacy-note { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 15px; line-height: 1.4; }
+        #chatScreen { display: none; flex-direction: column; height: 100vh; padding: 15px; animation: fadeIn 0.4s ease; }
+        .chat-header { text-align: center; padding: 10px; margin-bottom: 10px; position: relative; }
+        .chat-header h1 { color: var(--primary); font-size: 18px; margin-bottom: 4px; }
+        .chat-header .student-info { font-size: 12px; color: var(--text-muted); }
+        .chat-box { flex: 1; background: var(--card); border-radius: 15px; padding: 15px; overflow-y: auto; margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px; }
+        .msg { padding: 12px 16px; border-radius: 14px; max-width: 85%; line-height: 1.4; font-size: 15px; animation: slideUp 0.3s ease; }
+        .msg.user { background: var(--input); color: var(--primary); align-self: flex-end; border-bottom-right-radius: 4px; }
+        .msg.ai { background: #23272e; align-self: flex-start; border-left: 4px solid var(--success); border-bottom-left-radius: 4px; }
+        .msg.system { background: transparent; color: var(--text-muted); font-size: 12px; text-align: center; align-self: center; max-width: 100%; }
+        .input-area { display: flex; gap: 8px; background: var(--card); padding: 10px; border-radius: 15px; }
+        .input-area input { flex: 1; background: var(--input); border: 1px solid #333; color: white; padding: 14px; border-radius: 10px; font-size: 15px; outline: none; }
+        .btn-icon { background: var(--input); color: white; border: none; width: 50px; border-radius: 10px; font-size: 22px; cursor: pointer; }
+        .btn-icon.listening { background: var(--danger); animation: pulse 1.5s infinite; }
+        .btn-send { background: var(--primary); color: #000; border: none; padding: 0 20px; border-radius: 10px; font-weight: bold; font-size: 15px; cursor: pointer; }
+        .status-bar { text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 8px; min-height: 16px; }
+        .btn-logout { position: absolute; top: 0; right: 0; background: transparent; border: 1px solid #444; color: var(--text-muted); padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 12px rgba(255, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0); } }
+    </style>
+</head>
+<body>
+    <video id="videoElement" autoplay playsinline></video>
+    <canvas id="canvasElement"></canvas>
+
+    <div id="welcomeScreen">
+        <div class="welcome-card">
+            <div class="welcome-logo">🎓</div>
+            <div class="welcome-title">Assistente Educacional IA</div>
+            <div class="welcome-subtitle">Identifique-se para começar</div>
+            
+            <button class="btn-camera" id="btnCameraLogin"> Entrar com Reconhecimento Facial</button>
+            <button class="btn-camera btn-cadastro" id="btnCadastrar">📝 Cadastrar meu Rosto</button>
+            
+            <div class="form-group">
+                <label for="studentName">👤 Seu nome (opcional)</label>
+                <input type="text" id="studentName" placeholder="Como quer ser chamado?" maxlength="30">
+            </div>
+            <div class="form-group">
+                <label for="studentYear">Ano escolar *</label>
+                <select id="studentYear">
+                    <option value="">-- Selecione seu ano --</option>
+                    <option value="6º ano Fundamental">6º ano Fundamental</option>
+                    <option value="7º ano Fundamental">7º ano Fundamental</option>
+                    <option value="8º ano Fundamental">8º ano Fundamental</option>
+                    <option value="9º ano Fundamental">9º ano Fundamental</option>
+                    <option value="1º ano Médio">1º ano Médio</option>
+                    <option value="2º ano Médio">2º ano Médio</option>
+                    <option value="3º ano Médio">3º ano Médio</option>
+                    <option value="Faculdade">Faculdade</option>
+                    <option value="Outro">Outro</option>
+                </select>
+            </div>
+            <button class="btn-enter" id="btnEnter" disabled>Entrar no Chat</button>
+            <div class="privacy-note">🔒 Seus dados são anonimizados no banco de estatísticas.<br>Nenhum nome real é armazenado (conforme LGPD).</div>
+        </div>
+    </div>
+
+    <div id="chatScreen">
+        <div class="chat-header">
+            <button class="btn-logout" id="btnLogout">← Voltar</button>
+            <h1>🎓 Assistente Educacional IA</h1>
+            <div class="student-info" id="studentInfo">Visitante</div>
+        </div>
+        <div class="chat-box" id="chatBox">
+            <div class="msg ai">Olá! Sou seu assistente educacional. Como posso ajudar você hoje?</div>
+        </div>
+        <div class="input-area">
+            <button class="btn-icon" id="micBtn" title="Falar"></button>
+            <input type="text" id="userInput" placeholder="Digite sua pergunta..." autocomplete="off">
+            <button class="btn-send" id="sendBtn">Enviar</button>
+        </div>
+        <div class="status-bar" id="statusText">Pronto</div>
+    </div>
+
+    <script>
+        const welcomeScreen = document.getElementById('welcomeScreen');
+        const chatScreen = document.getElementById('chatScreen');
+        const studentNameInput = document.getElementById('studentName');
+        const studentYearSelect = document.getElementById('studentYear');
+        const btnEnter = document.getElementById('btnEnter');
+        const btnLogout = document.getElementById('btnLogout');
+        const studentInfo = document.getElementById('studentInfo');
+        const chatBox = document.getElementById('chatBox');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const micBtn = document.getElementById('micBtn');
+        const statusText = document.getElementById('statusText');
+        const btnCameraLogin = document.getElementById('btnCameraLogin');
+        const btnCadastrar = document.getElementById('btnCadastrar');
+        const videoElement = document.getElementById('videoElement');
+        const canvasElement = document.getElementById('canvasElement');
+
+        let sessionData = { id: 'web_' + Math.random().toString(36).substr(2, 9), nome: '', ano: '' };
+        let streamCamera = null;
+
+        function validarFormulario() { btnEnter.disabled = studentYearSelect.value.trim() === ''; }
+        studentYearSelect.addEventListener('change', validarFormulario);
+
+        btnEnter.addEventListener('click', () => {
+            const ano = studentYearSelect.value.trim();
+            const nome = studentNameInput.value.trim() || 'Visitante';
+            if (!ano) return;
+
+            sessionData.nome = nome;
+            sessionData.ano = ano;
+            studentInfo.textContent = `${nome} • ${ano}`;
+            
+            welcomeScreen.style.display = 'none';
+            chatScreen.style.display = 'flex';
+
+            const saudacao = nome === 'Visitante' 
+                ? `Olá! Estou pronto para ajudar. Pode perguntar!` 
+                : `Olá, ${nome} do ${ano}! Estou pronto para ajudar. Pode perguntar!`;
+            
+            addMessage(saudacao, 'ai');
+            falarResposta(saudacao); 
+        });
+
+        btnLogout.addEventListener('click', () => {
+            chatScreen.style.display = 'none';
+            welcomeScreen.style.display = 'flex';
+            studentNameInput.value = '';
+            studentYearSelect.value = '';
+            btnEnter.disabled = true;
+            chatBox.innerHTML = '<div class="msg ai">Olá! Sou seu assistente educacional. Como posso ajudar você hoje?</div>';
+            statusText.textContent = 'Pronto';
+            window.speechSynthesis.cancel();
+        });
+
+        // ===== RECONHECIMENTO FACIAL =====
+        btnCameraLogin.addEventListener('click', async () => {
+            console.log(" Iniciando reconhecimento facial...");
+            try {
+                streamCamera = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                videoElement.srcObject = streamCamera;
+                btnCameraLogin.textContent = '📸 Escaneando... (Aguarde 2s)';
+                btnCameraLogin.disabled = true;
+                btnCadastrar.disabled = true;
+
+                setTimeout(async () => {
+                    try {
+                        canvasElement.width = videoElement.videoWidth;
+                        canvasElement.height = videoElement.videoHeight;
+                        const context = canvasElement.getContext('2d');
+                        context.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+                        const imageBase64 = canvasElement.toDataURL('image/jpeg', 0.8);
+                        streamCamera.getTracks().forEach(track => track.stop());
+                        btnCameraLogin.textContent = '🔄 Processando...';
+
+                        const response = await fetch('/reconhecer', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ imagem: imageBase64 })
+                        });
+                        const data = await response.json();
+                        console.log("📥 Resposta do servidor:", data);
+
+                        if (data.sucesso) {
+                            studentNameInput.value = data.nome || "Aluno";
+                            studentYearSelect.value = data.ano || "Outro";
+                            validarFormulario();
+                            btnEnter.click(); 
+                        } else {
+                            alert('❌ ' + (data.erro || 'Rosto não reconhecido. Use o formulário manual ou cadastre-se.'));
+                            btnCameraLogin.textContent = '📸 Entrar com Reconhecimento Facial';
+                            btnCameraLogin.disabled = false;
+                            btnCadastrar.disabled = false;
+                        }
+                    } catch (err) {
+                        console.error("Erro ao processar imagem:", err);
+                        alert('Erro ao processar a imagem.');
+                        btnCameraLogin.disabled = false;
+                        btnCadastrar.disabled = false;
+                        btnCameraLogin.textContent = '📸 Entrar com Reconhecimento Facial';
+                    }
+                }, 2000);
+            } catch (err) {
+                console.error('Erro na câmera:', err);
+                alert('Não foi possível acessar a câmera.');
+                btnCameraLogin.disabled = false;
+                btnCadastrar.disabled = false;
+            }
+        });
+
+        // ===== CADASTRO FACIAL =====
+        btnCadastrar.addEventListener('click', async () => {
+            const nome = studentNameInput.value.trim();
+            const ano = studentYearSelect.value.trim();
+
+            if (!nome || !ano) {
+                alert('️ Por favor, preencha seu Nome e selecione o Ano Escolar antes de cadastrar o rosto.');
+                return;
+            }
+
+            try {
+                streamCamera = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                videoElement.srcObject = streamCamera;
+                
+                btnCadastrar.textContent = '📸 Sorria! (Aguarde 2s)';
+                btnCadastrar.disabled = true;
+                btnCameraLogin.disabled = true;
+
+                setTimeout(async () => {
+                    try {
+                        canvasElement.width = videoElement.videoWidth;
+                        canvasElement.height = videoElement.videoHeight;
+                        const context = canvasElement.getContext('2d');
+                        context.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+                        const imageBase64 = canvasElement.toDataURL('image/jpeg', 0.8);
+                        streamCamera.getTracks().forEach(track => track.stop());
+                        
+                        btnCadastrar.textContent = '🔄 Salvando...';
+
+                        const response = await fetch('/cadastrar', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ imagem: imageBase64, nome: nome, ano: ano })
+                        });
+                        
+                        const data = await response.json();
+                        console.log("📥 Resposta do cadastro:", data);
+                        
+                        if (data.sucesso) {
+                            alert('✅ ' + data.mensagem + '\nAgora você já pode usar o Reconhecimento Facial!');
+                            btnCadastrar.textContent = '📝 Cadastrar meu Rosto';
+                            btnCadastrar.disabled = false;
+                            btnCameraLogin.disabled = false;
+                            btnEnter.click(); 
+                        } else {
+                            alert('❌ ' + data.erro);
+                            btnCadastrar.textContent = '📝 Cadastrar meu Rosto';
+                            btnCadastrar.disabled = false;
+                            btnCameraLogin.disabled = false;
+                        }
+                    } catch (err) {
+                        console.error("Erro ao processar imagem:", err);
+                        alert('Erro ao processar imagem.');
+                        btnCadastrar.disabled = false;
+                        btnCameraLogin.disabled = false;
+                        btnCadastrar.textContent = ' Cadastrar meu Rosto';
+                    }
+                }, 2000);
+            } catch (err) {
+                console.error('Erro na câmera:', err);
+                alert('Não foi possível acessar a câmera.');
+                btnCadastrar.disabled = false;
+                btnCameraLogin.disabled = false;
+            }
+        });
+
+        // ===== RECONHECIMENTO DE VOZ =====
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null; let isListening = false;
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'pt-BR'; recognition.continuous = false; recognition.interimResults = false;
+            recognition.onstart = () => { isListening = true; micBtn.classList.add('listening'); statusText.textContent = 'Ouvindo...'; };
+            recognition.onend = () => { isListening = false; micBtn.classList.remove('listening'); if(statusText.textContent === 'Ouvindo...') statusText.textContent = 'Pronto'; };
+            recognition.onresult = (event) => { userInput.value = event.results[0][0].transcript; enviarPergunta(userInput.value); };
+            recognition.onerror = (event) => { console.error('Erro voz:', event.error); isListening = false; micBtn.classList.remove('listening'); statusText.textContent = 'Erro no microfone.'; };
+        } else { micBtn.style.display = 'none'; }
+        micBtn.addEventListener('click', () => { if (!recognition) return; isListening ? recognition.stop() : recognition.start(); });
+
+        // ===== ENVIO DE PERGUNTA =====
+        async function enviarPergunta(texto) {
+            if (!texto.trim()) return;
+            addMessage(texto, 'user'); userInput.value = ''; statusText.textContent = 'Pensando...';
+            const loadingDiv = document.createElement('div'); loadingDiv.className = 'msg ai'; loadingDiv.textContent = '⏳ Pensando...'; loadingDiv.id = 'loadingMsg';
+            chatBox.appendChild(loadingDiv); chatBox.scrollTop = chatBox.scrollHeight;
+            try {
+                const response = await fetch('/perguntar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pergunta: texto, ano: sessionData.ano, id_sessao: sessionData.id }) });
+                const loadingEl = document.getElementById('loadingMsg'); if (loadingEl) loadingEl.remove();
+                const data = await response.json();
+                if (data.erro) { addMessage('️ Erro: ' + data.erro, 'system'); statusText.textContent = 'Erro'; } 
+                else { addMessage(data.resposta, 'ai'); statusText.textContent = `📚 ${data.categoria} • ${data.tema || 'Geral'}`; falarResposta(data.resposta); }
+            } catch (error) { const loadingEl = document.getElementById('loadingMsg'); if (loadingEl) loadingEl.remove(); addMessage('⚠️ Erro de conexão.', 'system'); statusText.textContent = 'Erro de conexão'; }
+        }
+
+        function addMessage(text, sender) { const div = document.createElement('div'); div.className = `msg ${sender}`; div.textContent = text; chatBox.appendChild(div); chatBox.scrollTop = chatBox.scrollHeight; }
+        function falarResposta(texto) { if ('speechSynthesis' in window) { window.speechSynthesis.cancel(); const utterance = new SpeechSynthesisUtterance(texto); utterance.lang = 'pt-BR'; window.speechSynthesis.speak(utterance); } }
+        sendBtn.addEventListener('click', () => enviarPergunta(userInput.value));
+        userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') enviarPergunta(userInput.value); });
+    </script>
+</body>
+</html>

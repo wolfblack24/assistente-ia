@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+groq
+supabase
+opencv-python-headless
+numpy
