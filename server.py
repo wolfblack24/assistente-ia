@@ -9,13 +9,15 @@ import numpy as np
 import cv2
 from pathlib import Path
 from groq import Groq
-from supabase import create_client, Client  # NOVO
+from supabase import create_client, Client
 
-# O Render vai injetar essas variáveis. Se rodar local, ele usa o valor padrão.
-
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "SUA_NOVA_CHAVE_REAL_AQUI")
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "SUA_NOVA_CHAVE_REAL_AQUI")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "SUA_NOVA_CHAVE_REAL_AQUI")
+# ==========================================
+# 1. CONFIGURAÇÕES (GROQ + SUPABASE)
+# ==========================================
+# O Render injeta as chaves reais. Se rodar local, usa o valor fictício.
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "chave_ficticia_groq")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://url-ficticia.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "chave_ficticia_supabase")
 
 client_groq = Groq(api_key=GROQ_API_KEY)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -25,14 +27,6 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Assistente Educacional Web")
 BASE_DIR = Path(__file__).resolve().parent
-
-# ==========================================
-# 1. CONFIGURAÇÕES (GROQ + SUPABASE)
-# ==========================================
-client_groq = Groq(api_key=GROQ_API_KEY)
-
-# COLE AQUI SUA URL E CHAVE ANON DO SUPABASE
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 logger.info("✅ Groq e Supabase inicializados.")
 
@@ -54,20 +48,16 @@ rostos_encodings = []
 ids_conhecidos = []
 
 def carregar_rostos_servidor():
-    """Carrega rostos diretamente do Storage do Supabase"""
     global rostos_encodings, ids_conhecidos
     try:
-        # Lista todos os arquivos no bucket 'rostos'
         files = supabase.storage.from_('rostos').list()
-        logger.info(f" Encontrados {len(files)} arquivos no bucket 'rostos'.")
+        logger.info(f"📂 Encontrados {len(files)} arquivos no bucket 'rostos'.")
         
         for file in files:
             file_name = file['name']
             if not file_name.endswith(('.jpg', '.png')): continue
             
             id_aluno = os.path.splitext(file_name)[0]
-            
-            # Baixa a imagem do Supabase
             img_bytes = supabase.storage.from_('rostos').download(file_name)
             nparr = np.frombuffer(img_bytes, np.uint8)
             imagem = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -115,7 +105,8 @@ def salvar_pergunta_web(id_anonimo, ano, categoria, tema, pergunta, resposta):
             'pergunta': pergunta,
             'resposta': resposta
         }).execute()
-    except Exception as e: logger.error(f"Erro ao salvar pergunta: {e}")
+    except Exception as e: 
+        logger.error(f"Erro ao salvar pergunta: {e}")
 
 # ==========================================
 # 4. ROTAS
@@ -123,8 +114,10 @@ def salvar_pergunta_web(id_anonimo, ano, categoria, tema, pergunta, resposta):
 @app.get("/", response_class=HTMLResponse)
 async def get_home():
     html_file = BASE_DIR / "index.html"
-    if not html_file.exists(): return HTMLResponse(content="<h1>Erro: index.html não encontrado</h1>", status_code=404)
-    with open(html_file, "r", encoding="utf-8") as f: return f.read()
+    if not html_file.exists(): 
+        return HTMLResponse(content="<h1>Erro: index.html não encontrado</h1>", status_code=404)
+    with open(html_file, "r", encoding="utf-8") as f: 
+        return f.read()
 
 @app.post("/reconhecer")
 async def reconhecer_rosto(request: Request):
@@ -150,7 +143,6 @@ async def reconhecer_rosto(request: Request):
         id_detectado = comparar_rosto_web(feature)
         
         if id_detectado:
-            # Busca no Supabase
             response = supabase.table('alunos').select('nome, ano_escolar').eq('id_aluno', id_detectado).execute()
             if response.data:
                 nome_aluno = response.data[0]['nome']
@@ -191,17 +183,14 @@ async def cadastrar_rosto(request: Request):
 
         id_aluno = str(uuid.uuid4())[:12]
         
-        # 1. Salva a imagem no Storage do Supabase
         supabase.storage.from_('rostos').upload(f"{id_aluno}.jpg", img_bytes, {'content-type': 'image/jpeg'})
         
-        # 2. Salva os dados no Banco
         supabase.table('alunos').insert({
             'id_aluno': id_aluno,
             'nome': nome,
             'ano_escolar': ano
         }).execute()
 
-        # 3. Adiciona na memória RAM do servidor
         aligned = recognizer.alignCrop(imagem, faces[0])
         feature = recognizer.feature(aligned)
         rostos_encodings.append(feature)
@@ -230,9 +219,14 @@ async def processar_pergunta(request: Request):
         categoria = "OUTROS"; tema = ""
 
         try:
+            # ✅ MODELO CORRIGIDO E 100% FUNCIONAL NA GROQ
             chat_completion = client_groq.chat.completions.create(
-                messages=chat, model="llama-3.3-70b-versatile",
-                response_format={"type": "json_object"}, temperature=0.5, max_tokens=1024, timeout=30
+                messages=chat, 
+                model="qwen/qwen3.8-27b",  # <-- ESTE É O MODELO CORRETO E ESTÁVEL
+                response_format={"type": "json_object"}, 
+                temperature=0.5, 
+                max_tokens=1024, 
+                timeout=30
             )
             raw_text = chat_completion.choices[0].message.content.strip()
             if raw_text.startswith("```json"): raw_text = raw_text[7:]
@@ -250,16 +244,11 @@ async def processar_pergunta(request: Request):
         return {"resposta": texto_resposta, "categoria": categoria, "tema": tema}
     except Exception as e: return {"erro": str(e)}
 
-# if __name__ == "__main__":
-    # import uvicorn 
-    # from pyngrok import ngrok
-    # ngrok.set_auth_token("")
-    # public_url = ngrok.connect(8000)
-    # logger.info(f"🚀 Servidor rodando em http://localhost:8000")
-    # uvicorn.run(app, host="0.0.0.0", port=8000)
+# ==========================================
+# 5. INICIALIZAÇÃO DO SERVIDOR
+# ==========================================
 if __name__ == "__main__":
     import uvicorn
-    # O Render define a porta automaticamente. Se rodar local, usa 8000.
     port = int(os.environ.get("PORT", 8000))
     logger.info(f"🚀 Servidor iniciando na porta {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port)
