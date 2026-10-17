@@ -1,6 +1,5 @@
 __pycache__/
 *.db
-*.onnx
 .env
 venv/
 *.log
