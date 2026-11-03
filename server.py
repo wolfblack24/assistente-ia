@@ -14,7 +14,6 @@ from supabase import create_client, Client
 # ==========================================
 # 1. CONFIGURAÇÕES (GROQ + SUPABASE)
 # ==========================================
-# O Render injeta as chaves reais. Se rodar local, usa o valor fictício.
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "chave_ficticia_groq")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://url-ficticia.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "chave_ficticia_supabase")
@@ -210,9 +209,21 @@ async def processar_pergunta(request: Request):
         pergunta = data.get("pergunta", "").strip()
         ano_escolar = data.get("ano", "Visitante")
         id_sessao = data.get("id_sessao", str(uuid.uuid4())[:12])
+        idioma = data.get("idioma", "pt-BR") # NOVO: Pega o idioma escolhido
+        
         if not pergunta: return {"erro": "Pergunta vazia"}
 
-        chat = [{"role": "system", "content": f"Você é um assistente educacional. Responda SEMPRE em JSON: {{\"resposta\": \"max 3 frases\", \"categoria\": \"MATEMATICA\", \"tema\": \"2-4 palavras\"}}. Categorias: {CATEGORIAS_OFICIAIS}."}]
+        # Dicionário de prompts por idioma
+        prompts_idioma = {
+            "pt-BR": "Você é um assistente educacional. Responda em PORTUGUÊS.",
+            "en-US": "You are an educational assistant. Answer in ENGLISH.",
+            "es-ES": "Eres un asistente educativo. Responde en ESPAÑOL.",
+            "zh-CN": "你是一个教育助手。请用中文（普通话）回答。"
+        }
+        prompt_base = prompts_idioma.get(idioma, prompts_idioma["pt-BR"])
+
+        # O JSON mantém as chaves em português para o frontend não quebrar
+        chat = [{"role": "system", "content": f"{prompt_base} Responda SEMPRE estritamente no formato JSON abaixo, sem markdown:\n{{\"resposta\": \"sua resposta no idioma selecionado\", \"categoria\": \"MATEMATICA\", \"tema\": \"2-4 palavras\"}}\nAs chaves do JSON DEVEM ser exatamente: resposta, categoria, tema.\nCategorias válidas: {CATEGORIAS_OFICIAIS}."}]
         chat.append({"role": "user", "content": pergunta})
 
         texto_resposta = "Desculpe, tive um erro."
@@ -221,13 +232,12 @@ async def processar_pergunta(request: Request):
         try:
             chat_completion = client_groq.chat.completions.create(
                 messages=chat, 
-                model="qwen/qwen3.8-27b",  # <-- MODELO CORRETO E ESTÁVEL
+                model="llama-3.1-8b-instant",
                 response_format={"type": "json_object"}, 
                 temperature=0.5, 
-                max_tokens=300,                # <-- REDUZIDO PARA 300 (CABE NO LIMITE GRATUITO E SOBE PARA 3 FRASES)
+                max_tokens=300,
                 timeout=30
             )
-
             raw_text = chat_completion.choices[0].message.content.strip()
             if raw_text.startswith("```json"): raw_text = raw_text[7:]
             if raw_text.endswith("```"): raw_text = raw_text[:-3]
