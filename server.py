@@ -232,7 +232,7 @@ async def processar_pergunta(request: Request):
         try:
             chat_completion = client_groq.chat.completions.create(
                 messages=chat, 
-                model="llama-3.1-8b-instant",
+                model="qwen/qwen3.8-27b",
                 response_format={"type": "json_object"}, 
                 temperature=0.5, 
                 max_tokens=300,
